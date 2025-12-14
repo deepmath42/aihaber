@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Haber </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #0A0A0A;
+            overscroll-behavior: none;
+        }
+
+        .category-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .category-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .news-card {
+            transition: transform 0.15s ease-out;
+        }
+
+        .news-card:active {
+            transform: scale(0.98);
+        }
+
+        .action-btn {
+            transition: all 0.2s;
+        }
+
+        .action-btn:active {
+            transform: scale(0.9);
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(57, 255, 20, 0.1);
+            border-top: 3px solid #39FF14;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+    </style>
+</head>
+
+<body class="bg-[#0A0A0A] text-white">
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal items-center justify-center p-4" onclick="closeInfoModal(event)">
+        <div class="bg-gray-900 rounded-2xl p-6 max-w-md w-full border border-gray-800"
+            onclick="event.stopPropagation()">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-[#39FF14]/20 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-[#39FF14]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h2 class="text-xl font-bold">Hakkında</h2>
+            </div>
+            <p class="text-gray-300 text-sm mb-4">
+                Bu uygulama güncel teknoloji ve yapay zeka haberlerini RSS kaynaklarından derler.
+            </p>
+            <div class="bg-gray-800/50 rounded-lg p-3 mb-4">
+                <p class="text-xs text-gray-400 mb-2"> Kaynaklar:</p>
+                <ul class="text-xs text-gray-300 space-y-1">
+                    <li>• Webtekno, NTV Teknoloji, ShiftDelete</li>
+                    <li>• Webrazzi, LOG, Chip Online</li>
+                </ul>
+            </div>
+            <button onclick="closeInfoModal()"
+                class="w-full bg-[#39FF14] text-black font-semibold py-3 rounded-lg hover:bg-[#32E010] transition">
+                Tamam
+            </button>
+        </div>
+    </div>
+
+    <!-- News Detail Modal -->
+    <div id="newsDetailModal" class="modal items-center justify-center p-4" onclick="closeNewsDetail(event)">
+        <div class="bg-gray-900 rounded-2xl max-w-2xl w-full border border-gray-800 max-h-[90vh] overflow-y-auto"
+            onclick="event.stopPropagation()">
+            <div class="sticky top-0 bg-gray-900 border-b border-gray-800 p-4 flex items-center justify-between">
+                <h2 class="text-lg font-bold" id="detailTitle">Haber Detayı</h2>
+                <button onclick="closeNewsDetail()"
+                    class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-800/50">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <div id="detailImage" class="w-full h-64 bg-cover bg-center rounded-xl mb-4"></div>
+                <p class="text-xs font-semibold text-[#39FF14] mb-3" id="detailSource"></p>
+                <h3 class="text-2xl font-bold mb-4 leading-tight" id="detailHeadline"></h3>
+                <div id="detailContent" class="text-gray-300 leading-relaxed space-y-4">
+                    <div class="flex items-center justify-center py-8">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="sticky top-0 z-50 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-gray-800/50">
+        <div class="flex items-center justify-between px-4 py-3.5">
+            <button onclick="showInfoModal()"
+                class="w-10 h-10 flex items-center justify-center rounded-full active:bg-gray-800/50">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </button>
+            <h1 class="text-lg font-bold tracking-tight">AI Haber Akışı</h1>
+            <button onclick="toggleSearch()"
+                class="w-10 h-10 flex items-center justify-center rounded-full active:bg-gray-800/50">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </button>
+        </div>
+
+        <div id="searchBar" class="hidden px-4 pb-3">
+            <input type="text" id="searchInput" placeholder="Haber ara..."
+                class="w-full bg-gray-800/50 border border-gray-700 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-[#39FF14] transition"
+                onkeyup="searchNews()">
+        </div>
+    </header>
+
+    <!-- Categories -->
+    <div class="sticky top-[57px] z-40 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-gray-800/50 py-3">
+        <div class="category-scroll flex gap-2 px-4 overflow-x-auto pb-1">
+            <button
+                class="category-btn active shrink-0 px-4 py-2 rounded-full bg-[#39FF14] text-black font-semibold text-sm"
+                onclick="filterNews('all')">
+                Tümü
+            </button>
+            <button class="category-btn shrink-0 px-4 py-2 rounded-full bg-gray-800 text-gray-300 font-medium text-sm"
+                onclick="filterNews('ai')">
+                Yapay Zeka
+            </button>
+            <button class="category-btn shrink-0 px-4 py-2 rounded-full bg-gray-800 text-gray-300 font-medium text-sm"
+                onclick="filterNews('software')">
+                Yazılım
+            </button>
+            <button class="category-btn shrink-0 px-4 py-2 rounded-full bg-gray-800 text-gray-300 font-medium text-sm"
+                onclick="filterNews('hardware')">
+                Donanım
+            </button>
+            <button class="category-btn shrink-0 px-4 py-2 rounded-full bg-gray-800 text-gray-300 font-medium text-sm"
+                onclick="filterNews('general')">
+                Genel/Bilim
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="flex flex-col items-center justify-center py-20">
+        <div class="loading-spinner"></div>
+        <p class="text-gray-400 text-sm mt-4">Güncel haberler yükleniyor...</p>
+    </div>
+
+    <!-- News Grid -->
+    <main class="px-4 py-4" id="newsGrid" style="display: none;"></main>
+
+    <!-- Refresh Button -->
+    <button id="refreshBtn" onclick="refreshNews()"
+        class="fixed bottom-6 right-6 w-14 h-14 bg-[#39FF14] rounded-full shadow-lg flex items-center justify-center z-40"
+        style="display: none;">
+        <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+    </button>
+
+    <script>
+        let newsData = [];
+        let filteredNews = [];
+        let currentFilter = 'all';
+
+        const RSS_FEEDS = [
+            'https://www.webtekno.com/rss.xml',
+            'https://www.ntv.com.tr/teknoloji.rss',
+            'https://shiftdelete.net/feed',
+            'https://webrazzi.com/feed/',
+            'https://www.log.com.tr/feed/',
+            'https://www.chip.com.tr/rss/'
+        ];
+
+        // Haberleri kategorilere ayırmak için anahtar kelimeler
+        const KEYWORDS = {
+            ai: ['yapay zeka', 'ai', 'chatgpt', 'gemini', 'openai', 'llm', 'midjourney', 'bard', 'robot'],
+            software: ['yazılım', 'kodlama', 'programlama', 'güncelleme', 'uygulama', 'app', 'ios', 'android', 'windows'],
+            hardware: ['işlemci', 'ekran kartı', 'telefon', 'bilgisayar', 'laptop', 'intel', 'amd', 'nvidia', 'apple', 'samsung']
+        };
+
+        async function fetchRSS(url) {
+            try {
+                const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+                if (!response.ok) throw new Error('RSS yüklenemedi');
+                const data = await response.json();
+                return data.items.map(item => normalizeNews(item, data.feed));
+            } catch (error) {
+                console.error(`RSS Hatası (${url}):`, error);
+                return [];
+            }
+        }
+
+        function normalizeNews(item, feed) {
+            // Priority 1: Enclosure (Standard RSS image)
+            let image = item.enclosure ? item.enclosure.link : null;
+
+            // Priority 2: Thumbnail property (rss2json specific)
+            if (!image && item.thumbnail) {
+                image = item.thumbnail;
+            }
+
+            // Priority 3: Regex in Content/Description (Find first img tag)
+            if (!image) {
+                // Regex improvement: Matches src="value" OR src='value'
+                const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
+
+                // Check raw description
+                if (item.description) {
+                    const match = item.description.match(imgRegex);
+                    if (match) image = match[1];
+                }
+
+                // Check content if description failed
+                if (!image && item.content) {
+                    const match = item.content.match(imgRegex);
+                    if (match) image = match[1];
+                }
+            }
+
+            // Fallback: Category-based placeholder or generic default
+            if (!image) {
+                // Determine plausible category for better fallback
+                const lowerTitle = (item.title || '').toLowerCase();
+                if (lowerTitle.includes('ai') || lowerTitle.includes('yapay zeka')) {
+                    image = 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&q=80'; // AI Robot
+                } else if (lowerTitle.includes('kod') || lowerTitle.includes('yazılım')) {
+                    image = 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=800&q=80'; // Code
+                } else {
+                    image = 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80'; // Matrix/Green Tech
+                }
+            }
+
+            // HTML etiketlerini temizle ve özeti kısalt
+            // Hata düzeltme: RSS description bazen sadece HTML içerir, metin çıkar.
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = item.description || item.content || '';
+            let plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+            // Eğer metin çok kısaysa content'i dene
+            if (plainText.length < 50 && item.content) {
+                tempDiv.innerHTML = item.content;
+                plainText = tempDiv.textContent || tempDiv.innerText || '';
+            }
+
+            const description = plainText.length > 150 ? plainText.slice(0, 150) + '...' : plainText;
+
+            // Otomatik kategori belirleme
+            const titleLower = (item.title + ' ' + description).toLowerCase();
+            let category = 'general';
+
+            if (KEYWORDS.ai.some(k => titleLower.includes(k))) category = 'ai';
+            else if (KEYWORDS.software.some(k => titleLower.includes(k))) category = 'software';
+            else if (KEYWORDS.hardware.some(k => titleLower.includes(k))) category = 'hardware';
+
+            return {
+                id: Math.random().toString(36).substr(2, 9),
+                category: category,
+                source: feed.title || 'Haber Kaynağı',
+                date: new Date(item.pubDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                title: item.title,
+                description: description,
+                link: item.link,
+                image: image,
+                content: item.content || item.description, // Tam içerik (HTML dahil)
+                featured: false
+            };
+        }
+
+        async function loadNews() {
+            document.getElementById('loadingState').style.display = 'flex';
+            document.getElementById('newsGrid').style.display = 'none';
+            document.getElementById('loadingState').innerHTML = '<div class="loading-spinner"></div><p class="text-gray-400 text-sm mt-4">Haberler kaynaklardan çekiliyor...</p>';
+
+            try {
+                // Tüm kaynaklardan paralel çek
+                const results = await Promise.all(RSS_FEEDS.map(url => fetchRSS(url)));
+
+                // Hepsini birleştir ve sırala (yeniden eskiye)
+                newsData = results.flat().sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                // Duplicate kontrolü (Link'e göre)
+                const uniqueNews = [];
+                const links = new Set();
+                for (const news of newsData) {
+                    if (!links.has(news.link)) {
+                        links.add(news.link);
+                        uniqueNews.push(news);
+                    }
+                }
+                newsData = uniqueNews;
+
+                // İlk AI haberini veya herhangi bir haberi Featured yap
+                const featuredIndex = newsData.findIndex(n => n.category === 'ai');
+                if (featuredIndex !== -1) {
+                    newsData[featuredIndex].featured = true;
+                } else if (newsData.length > 0) {
+                    newsData[0].featured = true;
+                }
+
+                filteredNews = [...newsData];
+
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('newsGrid').style.display = 'block';
+                document.getElementById('refreshBtn').style.display = 'flex';
+                renderNews();
+
+            } catch (error) {
+                console.error('Genel Hata:', error);
+                document.getElementById('loadingState').innerHTML = `
+                    <div class="text-red-500 text-center p-4">
+                        <p class="font-bold mb-2">Haberler yüklenemedi</p>
+                        <p class="text-sm mb-4 text-gray-400">RSS kaynaklarına ulaşılamadı.</p>
+                        <button onclick="loadNews()" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700">Tekrar Dene</button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderNews() {
+            const grid = document.getElementById('newsGrid');
+            const featured = filteredNews.find(n => n.featured);
+            // Featured haberi normal listeden çıkar (eğer tümü seçiliyse veya kategorisi uyuyorsa)
+            const regular = filteredNews.filter(n => n !== featured);
+
+            grid.innerHTML = `
+                ${featured ? `
+                <article class="news-card rounded-2xl overflow-hidden bg-gray-900/60 border border-gray-800 mb-4 backdrop-blur-sm" onclick="openNewsDetail('${featured.id}')" style="cursor: pointer;">
+                    <div class="h-56 bg-cover bg-center" style="background-image: url('${featured.image}')"></div>
+                    <div class="p-4">
+                        <p class="text-xs font-semibold text-[#39FF14] mb-2">${featured.source.toUpperCase()} • ${featured.date.toUpperCase()}</p>
+                        <h2 class="text-xl font-bold mb-2 leading-tight">${featured.title}</h2>
+                        <p class="text-sm text-gray-300 leading-relaxed mb-4">${featured.description}</p>
+                        <div class="flex items-center justify-end gap-2" onclick="event.stopPropagation();">
+                            ${actionButtons()}
+                        </div>
+                    </div>
+                </article>
+                ` : ''}
+
+                <div class="grid grid-cols-1 gap-4">
+                    ${regular.map(news => `
+                        <article class="news-card rounded-2xl overflow-hidden bg-gray-900/60 border border-gray-800 backdrop-blur-sm" onclick="openNewsDetail('${news.id}')" style="cursor: pointer;">
+                            <div class="flex gap-3 p-3">
+                                <div class="w-28 h-28 rounded-xl bg-cover bg-center flex-shrink-0" style="background-image: url('${news.image}')"></div>
+                                <div class="flex-1 flex flex-col min-w-0">
+                                    <p class="text-xs font-semibold text-gray-400 mb-1.5">${news.source.toUpperCase()}</p>
+                                    <h3 class="text-sm font-bold mb-2 leading-snug line-clamp-3">${news.title}</h3>
+                                    <div class="mt-auto flex items-center justify-end gap-1" onclick="event.stopPropagation();">
+                                        ${actionButtons(true)}
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function actionButtons(small = false) {
+            const size = small ? 'w-8 h-8' : 'w-9 h-9';
+            const iconSize = small ? 'w-4 h-4' : 'w-5 h-5';
+            return `
+                <button class="action-btn ${size} flex items-center justify-center rounded-full hover:bg-gray-800/50" onclick="toggleBookmark(this)">
+                    <svg class="${iconSize} text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                    </svg>
+                </button>
+                <button class="action-btn ${size} flex items-center justify-center rounded-full hover:bg-gray-800/50" onclick="shareNews()">
+                    <svg class="${iconSize} text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                    </svg>
+                </button>
+            `;
+        }
+
+        function toggleBookmark(btn) {
+            const svg = btn.querySelector('svg');
+            const isBookmarked = svg.getAttribute('fill') === 'currentColor';
+            if (isBookmarked) {
+                svg.setAttribute('fill', 'none');
+                svg.classList.remove('text-[#39FF14]');
+                svg.classList.add('text-gray-400');
+            } else {
+                svg.setAttribute('fill', 'currentColor');
+                svg.classList.remove('text-gray-400');
+                svg.classList.add('text-[#39FF14]');
+            }
+        }
+
+        function shareNews() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'AI Haber Akışı',
+                    text: 'İlginç bir haber buldum!',
+                    url: window.location.href
+                });
+            }
+        }
+
+        function toggleSearch() {
+            const searchBar = document.getElementById('searchBar');
+            searchBar.classList.toggle('hidden');
+        }
+
+        function filterNews(category) {
+            currentFilter = category;
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-[#39FF14]', 'text-black', 'font-semibold');
+                btn.classList.add('bg-gray-800', 'text-gray-300', 'font-medium');
+            });
+            event.target.classList.add('active', 'bg-[#39FF14]', 'text-black', 'font-semibold');
+            event.target.classList.remove('bg-gray-800', 'text-gray-300', 'font-medium');
+
+            if (category === 'all') {
+                filteredNews = [...newsData];
+            } else {
+                filteredNews = newsData.filter(n => n.category === category);
+            }
+            renderNews();
+        }
+
+        function searchNews() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const baseNews = currentFilter === 'all' ? newsData : newsData.filter(n => n.category === currentFilter);
+
+            if (query === '') {
+                filteredNews = baseNews;
+            } else {
+                filteredNews = baseNews.filter(n =>
+                    n.title.toLowerCase().includes(query) ||
+                    n.description.toLowerCase().includes(query)
+                );
+            }
+            renderNews();
+        }
+
+        function openNewsDetail(newsId) {
+            const news = newsData.find(n => n.id === newsId);
+            if (!news) return;
+
+            const modal = document.getElementById('newsDetailModal');
+            modal.classList.add('active');
+
+            // Reset/Show standard modal elements
+            document.getElementById('detailImage').style.display = 'block';
+            document.getElementById('detailSource').style.display = 'block';
+            document.getElementById('detailImage').style.backgroundImage = `url('${news.image}')`;
+            document.getElementById('detailSource').textContent = `${news.source.toUpperCase()} • ${news.date}`;
+
+            const headline = document.getElementById('detailHeadline');
+            headline.textContent = news.title;
+            // Remove iframe-specific header styles if they exist
+            headline.classList.remove('text-lg', 'py-1', 'px-2');
+
+            const contentDiv = document.getElementById('detailContent');
+            contentDiv.style.height = 'auto'; // Reset height
+            contentDiv.className = 'text-gray-300 leading-relaxed space-y-4'; // Reset classes
+
+            contentDiv.innerHTML = `
+                <div class="prose prose-invert max-w-none">
+                    ${news.content}
+                </div>
+                
+                <div class="pt-6 mt-6 border-t border-gray-800">
+                     <a href="${news.link}" target="_blank" class="w-full bg-[#39FF14] text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#32E010] transition">
+                        <span>Haberi Kaynağında Oku</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                    </a>
+                </div>
+            `;
+        }
+
+        function closeNewsDetail(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('newsDetailModal').classList.remove('active');
+
+            // Clear content after animation
+            setTimeout(() => {
+                document.getElementById('detailContent').innerHTML = '';
+            }, 300);
+        }
+
+        function refreshNews() {
+            loadNews();
+        }
+
+        function showInfoModal() {
+            document.getElementById('infoModal').classList.add('active');
+        }
+
+        function closeInfoModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('infoModal').classList.remove('active');
+        }
+
+        window.addEventListener('load', () => {
+            loadNews();
+        });
+    </script>
+</body>
+
+</html>
